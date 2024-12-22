@@ -1,9 +1,7 @@
+import 'package:exercicioavaliacao2/listaoradores.dart';
 import 'package:exercicioavaliacao2/registar.dart';
 import 'package:flutter/material.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'firebase_options.dart';
 
 class login extends StatelessWidget {
   const login({super.key});
@@ -27,28 +25,33 @@ class _loginScreenState extends State<loginScreen> {
   final emailControlador = TextEditingController();
   final senhaControlador = TextEditingController();
   final chaveUnica = GlobalKey<FormState>();
-  bool _isLoading = false;
 
   Future<void> _loginUser() async {
-    UserCredential userCredential = await FirebaseAuth.instance.signInWithEmailAndPassword(
-      email: emailControlador.text.trim(),
-      password: senhaControlador.text.trim(),
-    );
+    try {
+      UserCredential userCredential = await FirebaseAuth.instance.signInWithEmailAndPassword(
+        email: emailControlador.text.trim(),
+        password: senhaControlador.text.trim(),
+      );
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Login bem-sucedido! Bem-vindo, ${userCredential.user!.email}')),
-    );
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Login bem-sucedido! Bem-vindo, ${userCredential.user!.email}')),
+      );
 
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (context) => Placeholder()), // Substitua pelo widget principal da aplicação
-    );
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => listaPage()),
+      );
+    } on FirebaseAuthException catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Credenciais incorretas. Tente novamente.')),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Theme.of(context).brightness == Brightness.dark ? Colors.black : Colors.white,
+      backgroundColor: Colors.white,
       body: Center(
         child: SingleChildScrollView(
           padding: EdgeInsets.all(16.0),
@@ -69,7 +72,7 @@ class _loginScreenState extends State<loginScreen> {
                       style: TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
-                        color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black,
+                        color: Colors.black,
                       ),
                     ),
                     SizedBox(height: 32),
@@ -97,16 +100,14 @@ class _loginScreenState extends State<loginScreen> {
                       obscureText: true,
                     ),
                     SizedBox(height: 32),
-                    _isLoading
-                        ? CircularProgressIndicator()
-                        : ElevatedButton(
+                    ElevatedButton(
                       onPressed: _loginUser,
                       style: ElevatedButton.styleFrom(
                         padding: EdgeInsets.symmetric(horizontal: 40, vertical: 14),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        backgroundColor: Colors.red[900],
+                        backgroundColor: Colors.purple,
                       ),
                       child: Text(
                         'Login',
@@ -124,7 +125,7 @@ class _loginScreenState extends State<loginScreen> {
                       child: Text(
                         'Não tem uma conta? Registe-se',
                         style: TextStyle(
-                          color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.red[900],
+                          color: Colors.purple,
                           fontSize: 14,
                         ),
                       ),

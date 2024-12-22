@@ -3,8 +3,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:firebase_storage/firebase_storage.dart';
-import 'login.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'dart:io';
+import 'login.dart';
 
 class registar extends StatelessWidget {
   const registar({super.key});
@@ -25,27 +26,28 @@ class registarPage extends StatefulWidget {
 }
 
 class _registarPageState extends State<registarPage> {
-  final _formKey = GlobalKey<FormState>();
+  final chaveUnica = GlobalKey<FormState>();
   TextEditingController email = TextEditingController();
   TextEditingController senha = TextEditingController();
   TextEditingController nome = TextEditingController();
   TextEditingController telefone = TextEditingController();
-  TextEditingController notaBiologica = TextEditingController();
-  TextEditingController foto = TextEditingController();
+  TextEditingController notaBiografica = TextEditingController();
 
   File? selecionarFoto;
 
-// Método para escolher a imagem
+  // Método para escolher a imagem
   Future<void> _pickImage() async {
     final ImagePicker picker = ImagePicker();
     final XFile? pickedImage = await picker.pickImage(source: ImageSource.gallery);
 
     if (pickedImage != null) {
-      selecionarFoto = File(pickedImage.path);
+      setState(() {
+        selecionarFoto = File(pickedImage.path); // Apenas suporta ficheiros locais
+      });
     }
   }
 
-// Método para carregar a imagem para o Firebase Storage
+  // Método para carregar a imagem para o Firebase Storage
   Future<String?> atualizarImagem(File image) async {
     try {
       String fileName = 'profile_images/${DateTime.now().millisecondsSinceEpoch}.png';
@@ -60,10 +62,11 @@ class _registarPageState extends State<registarPage> {
     }
   }
 
-// Método para registar o utilizador
+  // Método para registar o utilizador
   Future<void> _registerUser() async {
-    if (_formKey.currentState!.validate()) {
+    if (chaveUnica.currentState!.validate()) {
       try {
+        // Criar utilizador no Firebase Auth
         UserCredential userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
           email: email.text,
           password: senha.text,
@@ -71,7 +74,7 @@ class _registarPageState extends State<registarPage> {
 
         String uid = userCredential.user!.uid;
 
-        // Fazer upload da imagem e obter a URL
+        // Fazer upload da imagem (se existir)
         String? imageUrl;
         if (selecionarFoto != null) {
           imageUrl = await atualizarImagem(selecionarFoto!);
@@ -83,28 +86,40 @@ class _registarPageState extends State<registarPage> {
           'nome': nome.text,
           'password': senha.text,
           'telefone': telefone.text,
-          'nota biologica': notaBiologica.text,
-          'foto': imageUrl ?? '', // Guardar a URL da imagem
+          'nota biografica': notaBiografica.text,
+          'foto': imageUrl ?? '',
         });
 
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Utilizador registado com sucesso!')),
         );
-
-        // Redirecionar ou realizar outra ação após o registo
-      } catch (e) {
-        print('Erro ao registar o utilizador: $e');
+      } on FirebaseAuthException catch (e) {
+        print('Erro de autenticação: ${e.message}');
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro ao registar o utilizador')),
+          SnackBar(content: Text('Erro de autenticação: ${e.message}')),
+        );
+      } on FirebaseException catch (e) {
+        print('Erro Firebase: ${e.message}');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erro Firebase: ${e.message}')),
+        );
+      } catch (e) {
+        print('Erro desconhecido: $e');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erro desconhecido: $e')),
         );
       }
     }
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => loginScreen()),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Theme.of(context).brightness == Brightness.dark ? Colors.black : Colors.white,
+      backgroundColor: Colors.white,
       body: Center(
         child: SingleChildScrollView(
           padding: EdgeInsets.all(16.0),
@@ -116,7 +131,7 @@ class _registarPageState extends State<registarPage> {
             child: Padding(
               padding: const EdgeInsets.all(24.0),
               child: Form(
-                key: _formKey,
+                key: chaveUnica,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -125,7 +140,7 @@ class _registarPageState extends State<registarPage> {
                       style: TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
-                        color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black,
+                        color: Colors.black,
                       ),
                     ),
                     SizedBox(height: 32),
@@ -158,13 +173,13 @@ class _registarPageState extends State<registarPage> {
                       keyboardType: TextInputType.phone,
                       validator: (value) {
                         if (value == null || value.isEmpty) {
-                          return 'Por favor, insira seu numero de telefone';
+                          return 'Por favor, insira seu número de telefone';
                         }
                       },
                     ),
                     SizedBox(height: 16),
                     TextFormField(
-                      controller: notaBiologica,
+                      controller: notaBiografica ,
                       decoration: InputDecoration(
                         labelText: 'Nota Biográfica',
                         prefixIcon: Icon(Icons.note_alt),
@@ -174,7 +189,7 @@ class _registarPageState extends State<registarPage> {
                       ),
                       validator: (value) {
                         if (value == null || value.isEmpty) {
-                          return 'Por favor, insira o sua nota biográfica';
+                          return 'Por favor, insira sua nota biográfica';
                         }
                       },
                     ),
@@ -214,16 +229,53 @@ class _registarPageState extends State<registarPage> {
                         return null;
                       },
                     ),
+                    SizedBox(height: 16),
+                    if (selecionarFoto != null)
+                      Container(
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.purple, width: 2),
+                          borderRadius: BorderRadius.circular(12),
+                          color: Colors.grey.shade200,
+                        ),
+                        padding: EdgeInsets.all(8),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Image.file(
+                            selecionarFoto!,
+                            height: 150,
+                            width: 150,
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                      )
+                    else
+                      Text(
+                        'Nenhuma imagem selecionada',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    SizedBox(height: 16),
                     ElevatedButton(
                       onPressed: _pickImage,
-                      child: Text('Selecionar imagem'),
-                    ),
-                    if (selecionarFoto != null)
-                      Image.file(
-                        selecionarFoto!,
-                        height: 100,
-                        width: 100,
+                      child: Text(
+                        'Selecionar imagem',
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
+                      style: ElevatedButton.styleFrom(
+                        padding: EdgeInsets.symmetric(horizontal: 40, vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        backgroundColor: Colors.purple,
+                      ),
+                    ),
                     SizedBox(height: 16),
                     ElevatedButton(
                       onPressed: _registerUser,
@@ -232,7 +284,7 @@ class _registarPageState extends State<registarPage> {
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        backgroundColor: Colors.red[900],
+                        backgroundColor: Colors.purple,
                       ),
                       child: Text(
                         'Registar',
@@ -250,7 +302,7 @@ class _registarPageState extends State<registarPage> {
                       child: Text(
                         'Já tem uma conta? Faça login',
                         style: TextStyle(
-                          color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.red[900],
+                          color: Colors.purple,
                           fontSize: 14,
                         ),
                       ),
